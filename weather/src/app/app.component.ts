@@ -1,9 +1,10 @@
-import { Component, afterNextRender, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Forecast, Place, WeatherService } from './weather.service';
 import { PixelSceneComponent } from './pixel-scene.component';
 import { PixelIconComponent } from './pixel-icon.component';
+import { FrogComponent } from './frog.component';
 
 type Status = 'locating' | 'loading' | 'ready' | 'denied' | 'error';
 
@@ -11,7 +12,7 @@ const UNIT_KEY = 'pixel-weather-fahrenheit';
 
 @Component({
   selector: 'app-root',
-  imports: [DatePipe, FormsModule, PixelSceneComponent, PixelIconComponent],
+  imports: [DatePipe, FormsModule, PixelSceneComponent, PixelIconComponent, FrogComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -27,6 +28,9 @@ export class AppComponent {
   query = '';
   results = signal<Place[]>([]);
   searching = signal(false);
+  searchOpen = signal(false);
+  searchNote = signal('');
+  private cityInput = viewChild<ElementRef<HTMLInputElement>>('cityInput');
 
   sky = computed(() => this.forecast()?.current.sky ?? 'clear');
   isDay = computed(() => this.forecast()?.current.isDay ?? true);
@@ -73,15 +77,39 @@ export class AppComponent {
     const q = this.query.trim();
     if (!q) return;
     this.searching.set(true);
+    this.searchNote.set('');
     try {
       const found = await this.weather.search(q);
       this.results.set(found);
-      if (!found.length) this.message.set(`No city found for "${q}".`);
+      if (!found.length) this.searchNote.set(`No city found for "${q}".`);
     } catch (e) {
-      this.message.set((e as Error).message);
+      this.results.set([]);
+      this.searchNote.set((e as Error).message);
     } finally {
       this.searching.set(false);
     }
+  }
+
+  toggleSearch() {
+    if (this.searchOpen()) {
+      this.closeSearch();
+      return;
+    }
+    this.searchOpen.set(true);
+    // Focus the field once it has been rendered.
+    setTimeout(() => this.cityInput()?.nativeElement.focus());
+  }
+
+  closeSearch() {
+    this.searchOpen.set(false);
+    this.query = '';
+    this.results.set([]);
+    this.searchNote.set('');
+  }
+
+  pickCity(place: Place) {
+    this.closeSearch();
+    this.load(place);
   }
 
   toggleUnit() {

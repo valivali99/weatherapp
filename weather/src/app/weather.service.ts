@@ -112,7 +112,8 @@ export class WeatherService {
     if (!res.ok) throw new Error('City search failed.');
     const data = await res.json();
     return (data.results ?? []).map((r: any) => ({
-      name: [r.name, r.country_code].filter(Boolean).join(', '),
+      // Include the region so same-named places (e.g. several "Tokyo"s) can be told apart.
+      name: [r.name, r.admin1 !== r.name ? r.admin1 : null, r.country_code].filter(Boolean).join(', '),
       latitude: r.latitude,
       longitude: r.longitude,
     }));

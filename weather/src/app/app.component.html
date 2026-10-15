@@ -1,4 +1,5 @@
 <app-pixel-scene [sky]="sky()" [isDay]="isDay()" />
+<app-frog />
 
 <main class="app">
   <header class="topbar">
@@ -7,10 +8,53 @@
       <button class="btn" type="button" (click)="toggleUnit()" [attr.aria-label]="'Switch to ' + (fahrenheit() ? 'Celsius' : 'Fahrenheit')">
         {{ unit() }}
       </button>
-      <button class="btn" type="button" (click)="useMyLocation()" aria-label="Use my location">⌖</button>
-      <button class="btn" type="button" (click)="refresh()" [disabled]="!place()" aria-label="Refresh">↻</button>
+      <button class="btn" type="button" (click)="toggleSearch()" [class.active]="searchOpen()"
+              aria-label="Choose a city" [attr.aria-expanded]="searchOpen()" title="Choose a city">
+        <svg class="btn-icon" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true">
+          <rect x="3" y="1" width="4" height="1" /><rect x="2" y="2" width="1" height="1" /><rect x="7" y="2" width="1" height="1" />
+          <rect x="1" y="3" width="1" height="4" /><rect x="8" y="3" width="1" height="4" />
+          <rect x="2" y="7" width="1" height="1" /><rect x="7" y="7" width="1" height="1" /><rect x="3" y="8" width="4" height="1" />
+          <rect x="8" y="8" width="2" height="2" /><rect x="9" y="9" width="2" height="2" /><rect x="10" y="10" width="2" height="2" />
+        </svg>
+      </button>
+      <button class="btn" type="button" (click)="useMyLocation()" aria-label="Use my location" title="Use my location">⌖</button>
+      <button class="btn" type="button" (click)="refresh()" [disabled]="!place()" aria-label="Refresh" title="Refresh">↻</button>
     </div>
   </header>
+
+  @if (status() === 'denied') {
+    <section class="panel">
+      <p>{{ message() }}</p>
+      <p class="hint">Allow location access, or search for a city below.</p>
+    </section>
+  }
+
+  @if (searchOpen() || status() === 'denied') {
+    <section class="panel search" aria-label="Choose a city">
+      <div class="search-head">
+        <h2 class="search-title">CHOOSE A CITY</h2>
+        @if (status() !== 'denied') {
+          <button class="link" type="button" (click)="closeSearch()">Close ✕</button>
+        }
+      </div>
+      <form (ngSubmit)="search()" class="search-row">
+        <input #cityInput class="input" name="q" [(ngModel)]="query" placeholder="City name, e.g. Paris"
+               autocomplete="off" aria-label="City name" (keydown.escape)="closeSearch()" />
+        <button class="btn" type="submit" [disabled]="searching()">GO</button>
+      </form>
+      @if (searching()) {
+        <p class="hint blink">SEARCHING...</p>
+      } @else if (results().length) {
+        <ul class="results">
+          @for (r of results(); track r.latitude + ',' + r.longitude) {
+            <li><button class="link" type="button" (click)="pickCity(r)">{{ r.name }}</button></li>
+          }
+        </ul>
+      } @else if (searchNote()) {
+        <p class="hint">{{ searchNote() }}</p>
+      }
+    </section>
+  }
 
   @switch (status()) {
     @case ('locating') {
@@ -18,23 +62,6 @@
     }
     @case ('loading') {
       <section class="panel center"><p class="blink">LOADING {{ place()?.name }}...</p></section>
-    }
-    @case ('denied') {
-      <section class="panel search">
-        <p>{{ message() }}</p>
-        <p class="hint">Allow location access, or search for a city:</p>
-        <form (ngSubmit)="search()" class="search-row">
-          <input class="input" name="q" [(ngModel)]="query" placeholder="City name" autocomplete="off" />
-          <button class="btn" type="submit" [disabled]="searching()">GO</button>
-        </form>
-        @if (results().length) {
-          <ul class="results">
-            @for (r of results(); track r.latitude + ',' + r.longitude) {
-              <li><button class="link" type="button" (click)="load(r)">{{ r.name }}</button></li>
-            }
-          </ul>
-        }
-      </section>
     }
     @case ('error') {
       <section class="panel center">
