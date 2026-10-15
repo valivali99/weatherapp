@@ -1,0 +1,89 @@
+<app-pixel-scene [sky]="sky()" [isDay]="isDay()" />
+
+<main class="app">
+  <header class="topbar">
+    <h1 class="logo">PIXEL<span>WEATHER</span></h1>
+    <div class="actions">
+      <button class="btn" type="button" (click)="toggleUnit()" [attr.aria-label]="'Switch to ' + (fahrenheit() ? 'Celsius' : 'Fahrenheit')">
+        {{ unit() }}
+      </button>
+      <button class="btn" type="button" (click)="useMyLocation()" aria-label="Use my location">⌖</button>
+      <button class="btn" type="button" (click)="refresh()" [disabled]="!place()" aria-label="Refresh">↻</button>
+    </div>
+  </header>
+
+  @switch (status()) {
+    @case ('locating') {
+      <section class="panel center"><p class="blink">FINDING YOU...</p></section>
+    }
+    @case ('loading') {
+      <section class="panel center"><p class="blink">LOADING {{ place()?.name }}...</p></section>
+    }
+    @case ('denied') {
+      <section class="panel search">
+        <p>{{ message() }}</p>
+        <p class="hint">Allow location access, or search for a city:</p>
+        <form (ngSubmit)="search()" class="search-row">
+          <input class="input" name="q" [(ngModel)]="query" placeholder="City name" autocomplete="off" />
+          <button class="btn" type="submit" [disabled]="searching()">GO</button>
+        </form>
+        @if (results().length) {
+          <ul class="results">
+            @for (r of results(); track r.latitude + ',' + r.longitude) {
+              <li><button class="link" type="button" (click)="load(r)">{{ r.name }}</button></li>
+            }
+          </ul>
+        }
+      </section>
+    }
+    @case ('error') {
+      <section class="panel center">
+        <p>{{ message() }}</p>
+        <button class="btn" type="button" (click)="refresh()">TRY AGAIN</button>
+      </section>
+    }
+    @case ('ready') {
+      @if (forecast(); as f) {
+        <section class="panel today" aria-label="Today">
+          <div class="today-head">
+            <p class="place">{{ place()?.name }}</p>
+            <p class="date">{{ f.today.date | date: 'EEEE, d MMMM' }}</p>
+          </div>
+
+          <div class="today-main">
+            <app-pixel-icon [sky]="f.current.sky" [night]="!f.current.isDay" [size]="128" />
+            <div>
+              <p class="temp">{{ f.current.temperature }}<span>{{ unit() }}</span></p>
+              <p class="label">{{ f.current.label }}</p>
+              <p class="range">H {{ f.today.max }}° · L {{ f.today.min }}°</p>
+            </div>
+          </div>
+
+          <dl class="stats">
+            <div><dt>FEELS</dt><dd>{{ f.current.feelsLike }}°</dd></div>
+            <div><dt>HUMID</dt><dd>{{ f.current.humidity }}%</dd></div>
+            <div><dt>WIND</dt><dd>{{ f.current.wind }} {{ windUnit() }}</dd></div>
+            <div><dt>RAIN</dt><dd>{{ f.today.rainChance }}%</dd></div>
+            <div><dt>SUNRISE</dt><dd>{{ f.today.sunrise }}</dd></div>
+            <div><dt>SUNSET</dt><dd>{{ f.today.sunset }}</dd></div>
+          </dl>
+        </section>
+
+        <h2 class="section-title">NEXT 7 DAYS</h2>
+        <section class="week" aria-label="Next 7 days">
+          @for (d of f.week; track d.date.getTime()) {
+            <article class="panel day">
+              <p class="day-name">{{ d.date | date: 'EEE' }}</p>
+              <p class="day-date">{{ d.date | date: 'd MMM' }}</p>
+              <app-pixel-icon [sky]="d.sky" [size]="56" />
+              <p class="day-label">{{ d.label }}</p>
+              <p class="day-temp"><strong>{{ d.max }}°</strong> <span>{{ d.min }}°</span></p>
+              <p class="day-rain">☂ {{ d.rainChance }}%</p>
+            </article>
+          }
+        </section>
+      }
+    }
+  }
+
+</main>
