@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 
 export type Sky = 'clear' | 'partly' | 'cloudy' | 'fog' | 'rain' | 'snow' | 'storm';
 
@@ -71,8 +73,23 @@ export function describe(code: number): [Sky, string] {
 
 @Injectable({ providedIn: 'root' })
 export class WeatherService {
-  /** Asks the browser for the device position. */
-  locate(): Promise<GeolocationCoordinates> {
+  /** Asks for the device position: Android's own location API in the app, the browser's on the web. */
+  async locate(): Promise<{ latitude: number; longitude: number }> {
+    if (Capacitor.isNativePlatform()) {
+      const granted = (s: { location: string; coarseLocation: string }) =>
+        s.location === 'granted' || s.coarseLocation === 'granted';
+      try {
+        let status = await Geolocation.checkPermissions();
+        if (!granted(status)) status = await Geolocation.requestPermissions({ permissions: ['coarseLocation'] });
+        if (!granted(status)) throw new Error('Location access was denied.');
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 });
+        return pos.coords;
+      } catch (e) {
+        // Also thrown when location is switched off in the phone's settings.
+        if ((e as Error).message === 'Location access was denied.') throw e;
+        throw new Error('Could not get your location. Is location turned on?');
+      }
+    }
     return new Promise((resolve, reject) => {
       if (!('geolocation' in navigator)) {
         reject(new Error('Geolocation is not supported by this browser.'));
